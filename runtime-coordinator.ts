@@ -24,6 +24,11 @@ export interface SemanticDecisionsQueryResult {
 	offset: number;
 }
 
+/** pi throws this from every ExtensionAPI action once the runner is invalidated (loader.js assertActive). */
+function isStaleExtensionApiError(error: unknown): boolean {
+	return error instanceof Error && error.message.startsWith("This extension ctx is stale");
+}
+
 /** Centralizes overlay, monitor, widget, and completion-suppression state for the extension runtime. */
 export class InteractiveShellCoordinator {
 	private overlayOpen = false;
@@ -119,7 +124,11 @@ export class InteractiveShellCoordinator {
 			try {
 				task(this.extensionApi);
 			} catch (error) {
-				console.error("pi-interactive-shell: dropped a notification because the owning Pi session is no longer active:", error instanceof Error ? error.message : error);
+				if (isStaleExtensionApiError(error)) {
+					console.error("pi-interactive-shell: dropped a notification because the owning Pi session is no longer active.");
+				} else {
+					console.error("pi-interactive-shell: notification delivery failed:", error);
+				}
 			}
 			return;
 		}
