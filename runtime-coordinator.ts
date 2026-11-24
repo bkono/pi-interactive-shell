@@ -114,7 +114,13 @@ export class InteractiveShellCoordinator {
 
 	runWithExtensionApi(task: (pi: ExtensionAPI) => void): void {
 		if (this.extensionApi) {
-			task(this.extensionApi);
+			// Callers run from PTY and timer callbacks, where a throw is an uncaughtException that ends the host.
+			// An embedding host can dispose a session without session_shutdown, which leaves this API stale.
+			try {
+				task(this.extensionApi);
+			} catch (error) {
+				console.error("pi-interactive-shell: dropped a notification because the owning Pi session is no longer active:", error instanceof Error ? error.message : error);
+			}
 			return;
 		}
 		this.pendingApiTasks.push(task);

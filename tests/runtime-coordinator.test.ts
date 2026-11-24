@@ -101,6 +101,19 @@ describe("InteractiveShellCoordinator extension API rebinding", () => {
 		expect(delivered).toEqual([firstApi, secondApi]);
 	});
 
+	it("contains a throw from an API its host disposed without session_shutdown", () => {
+		// Embedding hosts (subagents, multi-session servers) can call AgentSession.dispose() directly.
+		// That invalidates the API but never unbinds it, and delivery runs from PTY exit callbacks.
+		const coordinator = new InteractiveShellCoordinator();
+		const staleApi = { sendMessage: () => { throw new Error("This extension ctx is stale"); } } as never;
+		const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+		coordinator.bindExtensionApi(staleApi);
+
+		expect(() => coordinator.runWithExtensionApi((pi) => pi.sendMessage({ customType: "t", content: "", display: false }))).not.toThrow();
+		expect(errors).toHaveBeenCalledWith(expect.stringContaining("owning Pi session is no longer active"), "This extension ctx is stale");
+		errors.mockRestore();
+	});
+
 	it("fences stale runtime epochs across API rebinds", () => {
 		const coordinator = new InteractiveShellCoordinator();
 		const rebindSemanticEpoch = vi.fn();
