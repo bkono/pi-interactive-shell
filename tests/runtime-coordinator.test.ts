@@ -111,7 +111,9 @@ describe("InteractiveShellCoordinator extension API rebinding", () => {
 		coordinator.bindExtensionApi(staleApi);
 
 		expect(() => coordinator.runWithExtensionApi((pi) => pi.sendMessage({ customType: "t", content: "", display: false }))).not.toThrow();
-		expect(errors).toHaveBeenCalledWith(expect.stringContaining("owning Pi session is no longer active"));
+		// The expected stale case is logged once, without the error object or stack.
+		expect(errors).toHaveBeenCalledTimes(1);
+		expect(errors.mock.calls[0]).not.toContain(stale);
 		errors.mockRestore();
 	});
 
@@ -122,7 +124,8 @@ describe("InteractiveShellCoordinator extension API rebinding", () => {
 		coordinator.bindExtensionApi({} as never);
 
 		expect(() => coordinator.runWithExtensionApi(() => { throw bug; })).not.toThrow();
-		expect(errors).toHaveBeenCalledWith(expect.stringContaining("delivery failed"), bug);
+		expect(errors).toHaveBeenCalledTimes(1);
+		expect(errors.mock.calls[0]).toContain(bug);
 		errors.mockRestore();
 	});
 
